@@ -1,5 +1,5 @@
 # server
 
 ```sh
-gleam run <geofeed_path>
+gleam run <port> <geofeed_path>
 ```

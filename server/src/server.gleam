@@ -2,6 +2,7 @@ import argv
 import gleam/dynamic/decode
 import gleam/erlang/process
 import gleam/http.{Get, Post}
+import gleam/int
 import gleam/json
 import lustre/attribute
 import lustre/element
@@ -18,12 +19,13 @@ pub fn main() {
   let secret_key_base = wisp.random_string(64)
   let assert Ok(priv_directory) = wisp.priv_directory("server")
   let static_directory = priv_directory <> "/static"
-  let assert [geofeed_path, ..] = argv.load().arguments
+  let assert [port_str, geofeed_path, ..] = argv.load().arguments
+  let assert Ok(port) = int.parse(port_str)
   let assert Ok(_) =
     handle_request(static_directory, geofeed_path, _)
     |> wisp_mist.handler(secret_key_base)
     |> mist.new
-    |> mist.port(3000)
+    |> mist.port(port)
     |> mist.start
   process.sleep_forever()
 }
