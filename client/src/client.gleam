@@ -47,11 +47,17 @@ pub fn main() {
 }
 
 type Model {
-  Model(geofeed_form: GeofeedForm, saving: Bool, errors: List(String))
+  Model(
+    geofeed_form: GeofeedForm,
+    show_postcode: Bool,
+    saving: Bool,
+    errors: List(String),
+  )
 }
 
 fn init(geofeed_form: GeofeedForm) -> #(Model, Effect(Msg)) {
-  let model = Model(geofeed_form:, saving: False, errors: [])
+  let model =
+    Model(geofeed_form:, show_postcode: False, saving: False, errors: [])
   #(model, effect.none())
 }
 
@@ -63,6 +69,7 @@ type Msg {
   UserMovedItemDown(index: Int)
   UserDeletedItem(index: Int)
   UserUpdatedItem(index: Int, item: GeofeedFormItem)
+  UserSetShowPostcode(show_postcode: Bool)
 }
 
 fn prepend_form_field_errors(
@@ -221,12 +228,19 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         })
       #(Model(..model, geofeed_form:), effect.none())
     }
+    UserSetShowPostcode(show_postcode:) -> {
+      #(Model(..model, show_postcode:), effect.none())
+    }
   }
 }
 
 const default_font_size_style = #("font-size", "0.9em")
 
 const text_align_center_style = #("text-align", "center")
+
+const border_style = #("border", "1px solid #8f8f9d")
+
+const border_radius_style = #("border-radius", "0.5em")
 
 const cursor_pointer_style = #("cursor", "pointer")
 
@@ -241,6 +255,8 @@ fn form_button(
         #("padding", "0.4em 1em"),
         shared.font_family_style,
         default_font_size_style,
+        border_style,
+        border_radius_style,
         cursor_pointer_style,
       ]),
     ],
@@ -288,7 +304,7 @@ fn view(model: Model) -> Element(Msg) {
     ),
     html.div(
       [attribute.styles([#("display", "flex"), #("justify-content", "center")])],
-      [view_geofeed_form(model.geofeed_form)],
+      [view_geofeed_form(model.geofeed_form, model.show_postcode)],
     ),
     element.fragment(
       model.errors
@@ -322,12 +338,33 @@ fn view(model: Model) -> Element(Msg) {
           True -> "Saving..."
           False -> "Save"
         }),
+        html.label(
+          [
+            attribute.styles([
+              #("padding", "0.4em 1em 0.4em 0.7em"),
+              shared.font_family_style,
+              default_font_size_style,
+              border_style,
+              border_radius_style,
+            ]),
+          ],
+          [
+            html.input([
+              attribute.type_("checkbox"),
+              event.on_check(UserSetShowPostcode),
+            ]),
+            html.text("Postcode"),
+          ],
+        ),
       ],
     ),
   ])
 }
 
-fn view_geofeed_form(geofeed_form: GeofeedForm) -> Element(Msg) {
+fn view_geofeed_form(
+  geofeed_form: GeofeedForm,
+  show_postcode: Bool,
+) -> Element(Msg) {
   case geofeed_form {
     [] -> html.p([], [html.text("No items in your geofeed yet.")])
     _ -> {
@@ -335,7 +372,7 @@ fn view_geofeed_form(geofeed_form: GeofeedForm) -> Element(Msg) {
       html.ol(
         [attribute.styles([#("margin", "0"), #("padding", "0")])],
         list.index_map(geofeed_form, fn(item, index) {
-          html.li([], [view_geofeed_item(item, index, total)])
+          html.li([], [view_geofeed_item(item, index, total, show_postcode)])
         }),
       )
     }
@@ -355,6 +392,8 @@ fn form_field_input(
       #("width", int.to_string(chars) <> "ch"),
       shared.font_family_style,
       default_font_size_style,
+      border_style,
+      border_radius_style,
       ..case form_field.parsed_value {
         Ok(_) -> []
         Error(_) -> [shared.error_font_color_style]
@@ -385,6 +424,8 @@ fn item_button(
         #("align-items", "center"),
         shared.font_family_style,
         #("font-size", "1.2em"),
+        border_style,
+        border_radius_style,
         ..case disabled {
           True -> []
           False -> [cursor_pointer_style]
@@ -408,7 +449,30 @@ fn view_geofeed_item(
   item: GeofeedFormItem,
   index: Int,
   total: Int,
+  show_postcode: Bool,
 ) -> Element(Msg) {
+  let item_buttons = [
+    item_button(
+      on_click_msg: UserMovedItemUp(index:),
+      disabled: index == 0,
+      icon_path: "m233.4 137.4c12.5-12.5 32.8-12.5 45.3 0l160 160c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0l-137.4-137.4-137.4 137.3c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3l160-160z",
+    ),
+    item_button(
+      on_click_msg: UserMovedItemDown(index:),
+      disabled: index == total - 1,
+      icon_path: "m233.4 374.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-137.4 137.4-137.4-137.3c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z",
+    ),
+    item_button(
+      on_click_msg: UserAddedItem(index: Some(index)),
+      disabled: False,
+      icon_path: "m288 80c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 144-144 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l144 0 0 144c0 17.7 14.3 32 32 32s32-14.3 32-32l0-144 144 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-144 0 0-144z",
+    ),
+    item_button(
+      on_click_msg: UserDeletedItem(index:),
+      disabled: False,
+      icon_path: "m406.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-105.3 105.4-105.4-105.3c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l105.4 105.3-105.3 105.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l105.3-105.4 105.4 105.3c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-105.4-105.3 105.3-105.4z",
+    ),
+  ]
   html.div(
     [
       attribute.styles([
@@ -484,41 +548,27 @@ fn view_geofeed_item(
           )
         },
       ),
-      form_field_input(
-        form_field: item.postcode,
-        chars: 10,
-        set_max_length: False,
-        placeholder: "Postcode",
-        on_input_handler: fn(value) {
-          UserUpdatedItem(
-            index,
-            GeofeedFormItem(
-              ..item,
-              postcode: form_field.parse_optional(value, postcode.parse),
-            ),
-          )
-        },
-      ),
-      item_button(
-        on_click_msg: UserMovedItemUp(index:),
-        disabled: index == 0,
-        icon_path: "m233.4 137.4c12.5-12.5 32.8-12.5 45.3 0l160 160c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0l-137.4-137.4-137.4 137.3c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3l160-160z",
-      ),
-      item_button(
-        on_click_msg: UserMovedItemDown(index:),
-        disabled: index == total - 1,
-        icon_path: "m233.4 374.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-137.4 137.4-137.4-137.3c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z",
-      ),
-      item_button(
-        on_click_msg: UserAddedItem(index: Some(index)),
-        disabled: False,
-        icon_path: "m288 80c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 144-144 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l144 0 0 144c0 17.7 14.3 32 32 32s32-14.3 32-32l0-144 144 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-144 0 0-144z",
-      ),
-      item_button(
-        on_click_msg: UserDeletedItem(index:),
-        disabled: False,
-        icon_path: "m406.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-105.3 105.4-105.4-105.3c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l105.4 105.3-105.3 105.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l105.3-105.4 105.4 105.3c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-105.4-105.3 105.3-105.4z",
-      ),
+      ..case show_postcode {
+        True -> [
+          form_field_input(
+            form_field: item.postcode,
+            chars: 10,
+            set_max_length: False,
+            placeholder: "Postcode",
+            on_input_handler: fn(value) {
+              UserUpdatedItem(
+                index,
+                GeofeedFormItem(
+                  ..item,
+                  postcode: form_field.parse_optional(value, postcode.parse),
+                ),
+              )
+            },
+          ),
+          ..item_buttons
+        ]
+        False -> item_buttons
+      }
     ],
   )
 }
