@@ -4,6 +4,7 @@ import gleam/erlang/process
 import gleam/http.{Get, Post}
 import gleam/int
 import gleam/json
+import gleam/result
 import lustre/attribute
 import lustre/element
 import lustre/element/html
@@ -16,16 +17,21 @@ import wisp/wisp_mist
 
 pub fn main() {
   wisp.configure_logger()
-  let secret_key_base = wisp.random_string(64)
   let assert Ok(priv_directory) = wisp.priv_directory("server")
   let static_directory = priv_directory <> "/static"
-  let assert Ok(port_str) = envoy.get("PORT")
-  let assert Ok(geofeed_path) = envoy.get("GEOFEED")
-  let assert Ok(port) = int.parse(port_str)
+  let geofeed_path = envoy.get("GEOFEED_PATH") |> result.unwrap("geofeed.csv")
+  let secret_key_base =
+    envoy.get("SECRET_KEY") |> result.unwrap(wisp.random_string(64))
+  let bind_address = envoy.get("BIND_ADDRESS") |> result.unwrap("0.0.0.0")
+  let port =
+    envoy.get("PORT")
+    |> result.try(int.parse)
+    |> result.unwrap(8080)
   let assert Ok(_) =
-    handle_request(static_directory, geofeed_path, _)
+    handle_request(_, static_directory, geofeed_path)
     |> wisp_mist.handler(secret_key_base)
     |> mist.new
+    |> mist.bind(bind_address)
     |> mist.port(port)
     |> mist.start
   process.sleep_forever()
@@ -45,9 +51,9 @@ fn app_middleware(
 }
 
 fn handle_request(
+  req: Request,
   static_directory: String,
   geofeed_path: String,
-  req: Request,
 ) -> Response {
   use req <- app_middleware(req, static_directory)
   case req.method, wisp.path_segments(req) {
