@@ -46,9 +46,20 @@ pub fn main() {
   Nil
 }
 
+type GeofeedSearchItem {
+  GeofeedSearchItem(
+    cidr: String,
+    country: String,
+    region: String,
+    city: String,
+    postcode: String,
+  )
+}
+
 type Model {
   Model(
     geofeed_form: GeofeedForm,
+    search_item: GeofeedSearchItem,
     show_postcode: Bool,
     saving: Bool,
     errors: List(String),
@@ -56,8 +67,16 @@ type Model {
 }
 
 fn init(geofeed_form: GeofeedForm) -> #(Model, Effect(Msg)) {
+  let search_item =
+    GeofeedSearchItem(cidr: "", country: "", region: "", city: "", postcode: "")
   let model =
-    Model(geofeed_form:, show_postcode: False, saving: False, errors: [])
+    Model(
+      geofeed_form:,
+      search_item:,
+      show_postcode: False,
+      saving: False,
+      errors: [],
+    )
   #(model, effect.none())
 }
 
@@ -69,6 +88,7 @@ type Msg {
   UserMovedItemDown(index: Int)
   UserDeletedItem(index: Int)
   UserUpdatedItem(index: Int, item: GeofeedFormItem)
+  UserUpdatedSearchItem(search_item: GeofeedSearchItem)
   UserSetShowPostcode(show_postcode: Bool)
 }
 
@@ -228,6 +248,9 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         })
       #(Model(..model, geofeed_form:), effect.none())
     }
+    UserUpdatedSearchItem(search_item:) -> {
+      #(Model(..model, search_item:), effect.none())
+    }
     UserSetShowPostcode(show_postcode:) -> {
       #(Model(..model, show_postcode:), effect.none())
     }
@@ -265,6 +288,8 @@ fn form_button(
 }
 
 fn view(model: Model) -> Element(Msg) {
+  let Model(geofeed_form:, search_item:, show_postcode:, saving:, errors:) =
+    model
   element.fragment([
     html.h1(
       [
@@ -304,10 +329,10 @@ fn view(model: Model) -> Element(Msg) {
     ),
     html.div(
       [attribute.styles([#("display", "flex"), #("justify-content", "center")])],
-      [view_geofeed_form(model.geofeed_form, model.show_postcode)],
+      [view_geofeed_form(geofeed_form:, search_item:, show_postcode:)],
     ),
     element.fragment(
-      model.errors
+      errors
       |> list.map(fn(error) {
         html.div(
           [
@@ -334,7 +359,7 @@ fn view(model: Model) -> Element(Msg) {
       ],
       [
         form_button(on_click_msg: UserAddedItem(None), text: "Add"),
-        form_button(on_click_msg: UserSavedList, text: case model.saving {
+        form_button(on_click_msg: UserSavedList, text: case saving {
           True -> "Saving..."
           False -> "Save"
         }),
@@ -361,26 +386,9 @@ fn view(model: Model) -> Element(Msg) {
   ])
 }
 
-fn view_geofeed_form(
-  geofeed_form: GeofeedForm,
-  show_postcode: Bool,
-) -> Element(Msg) {
-  case geofeed_form {
-    [] -> html.p([], [html.text("No items in your geofeed yet.")])
-    _ -> {
-      let total = list.length(geofeed_form)
-      html.ol(
-        [attribute.styles([#("margin", "0"), #("padding", "0")])],
-        list.index_map(geofeed_form, fn(item, index) {
-          html.li([], [view_geofeed_item(item, index, total, show_postcode)])
-        }),
-      )
-    }
-  }
-}
-
-fn form_field_input(
-  form_field form_field: FormField(a),
+fn input(
+  value value: String,
+  is_valid is_valid: Bool,
   chars chars: Int,
   set_max_length set_max_length: Bool,
   placeholder placeholder: String,
@@ -394,19 +402,183 @@ fn form_field_input(
       default_font_size_style,
       border_style,
       border_radius_style,
-      ..case form_field.parsed_value {
-        Ok(_) -> []
-        Error(_) -> [shared.error_font_color_style]
+      ..case is_valid {
+        True -> []
+        False -> [shared.error_font_color_style]
       }
     ]),
     attribute.placeholder(placeholder),
-    attribute.value(form_field.raw_value),
+    attribute.value(value),
     event.on_input(on_input_handler),
     ..case set_max_length {
       True -> [attribute.maxlength(chars)]
       False -> []
     }
   ])
+}
+
+fn form_field_input(
+  form_field form_field: FormField(a),
+  chars chars: Int,
+  set_max_length set_max_length: Bool,
+  placeholder placeholder: String,
+  on_input_handler on_input_handler: fn(String) -> Msg,
+) {
+  input(
+    value: form_field.raw_value,
+    is_valid: result.is_ok(form_field.parsed_value),
+    chars:,
+    set_max_length:,
+    placeholder:,
+    on_input_handler:,
+  )
+}
+
+fn field_search(
+  value value: String,
+  form_field form_field: FormField(a),
+) -> Bool {
+  value == ""
+  || string.contains(
+    does: string.lowercase(form_field.raw_value),
+    contain: string.lowercase(value),
+  )
+}
+
+fn item_search(
+  search_item search_item: GeofeedSearchItem,
+  item item: GeofeedFormItem,
+) -> Bool {
+  field_search(value: search_item.cidr, form_field: item.cidr)
+  && field_search(value: search_item.country, form_field: item.country)
+  && field_search(value: search_item.region, form_field: item.region)
+  && field_search(value: search_item.city, form_field: item.city)
+  && field_search(value: search_item.postcode, form_field: item.postcode)
+}
+
+fn view_geofeed_form(
+  geofeed_form geofeed_form: GeofeedForm,
+  search_item search_item: GeofeedSearchItem,
+  show_postcode show_postcode: Bool,
+) -> Element(Msg) {
+  case geofeed_form {
+    [] ->
+      html.p([attribute.styles([text_align_center_style])], [
+        html.text("No items in your geofeed yet."),
+      ])
+    _ -> {
+      let total = list.length(geofeed_form)
+      html.div([], [
+        html.div(
+          [
+            attribute.styles([
+              #("margin", "1em 0"),
+              #("display", "flex"),
+              #("gap", "0.6em"),
+            ]),
+          ],
+          [
+            input(
+              value: search_item.cidr,
+              is_valid: True,
+              chars: 43,
+              set_max_length: True,
+              placeholder: "CIDR",
+              on_input_handler: fn(value) {
+                UserUpdatedSearchItem(
+                  GeofeedSearchItem(
+                    ..search_item,
+                    cidr: string.lowercase(value),
+                  ),
+                )
+              },
+            ),
+            input(
+              value: search_item.country,
+              is_valid: True,
+              chars: 2,
+              set_max_length: True,
+              placeholder: "CC",
+              on_input_handler: fn(value) {
+                UserUpdatedSearchItem(
+                  GeofeedSearchItem(
+                    ..search_item,
+                    country: string.uppercase(value),
+                  ),
+                )
+              },
+            ),
+            input(
+              value: search_item.region,
+              is_valid: True,
+              chars: 6,
+              set_max_length: True,
+              placeholder: "Region",
+              on_input_handler: fn(value) {
+                UserUpdatedSearchItem(
+                  GeofeedSearchItem(
+                    ..search_item,
+                    region: string.uppercase(value),
+                  ),
+                )
+              },
+            ),
+            input(
+              value: search_item.city,
+              is_valid: True,
+              chars: 24,
+              set_max_length: False,
+              placeholder: "City",
+              on_input_handler: fn(value) {
+                UserUpdatedSearchItem(
+                  GeofeedSearchItem(..search_item, city: value),
+                )
+              },
+            ),
+            ..case show_postcode {
+              True -> [
+                input(
+                  value: search_item.postcode,
+                  is_valid: True,
+                  chars: 10,
+                  set_max_length: False,
+                  placeholder: "Postcode",
+                  on_input_handler: fn(value) {
+                    UserUpdatedSearchItem(
+                      GeofeedSearchItem(..search_item, postcode: value),
+                    )
+                  },
+                ),
+              ]
+              False -> []
+            }
+          ],
+        ),
+        case list.any(geofeed_form, item_search(search_item:, item: _)) {
+          True ->
+            html.ol(
+              [attribute.styles([#("margin", "0"), #("padding", "0")])],
+              list.index_map(geofeed_form, fn(item, index) {
+                html.li(
+                  [
+                    attribute.value(int.to_string(index + 1)),
+                    ..case item_search(search_item:, item:) {
+                      True -> []
+                      False -> [attribute.styles([#("display", "none")])]
+                    }
+                  ],
+                  [view_geofeed_item(item:, index:, total:, show_postcode:)],
+                )
+              }),
+            )
+          False ->
+            html.p([attribute.styles([text_align_center_style])], [
+              html.text("Search returned no results."),
+            ])
+        },
+      ])
+    }
+  }
 }
 
 fn item_button(
@@ -446,10 +618,10 @@ fn item_button(
 }
 
 fn view_geofeed_item(
-  item: GeofeedFormItem,
-  index: Int,
-  total: Int,
-  show_postcode: Bool,
+  item item: GeofeedFormItem,
+  index index: Int,
+  total total: Int,
+  show_postcode show_postcode: Bool,
 ) -> Element(Msg) {
   let item_buttons = [
     item_button(
