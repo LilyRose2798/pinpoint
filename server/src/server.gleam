@@ -58,7 +58,7 @@ fn handle_request(
   use req <- app_middleware(req, static_directory)
   case req.method, wisp.path_segments(req) {
     Post, ["api", "geofeed"] -> handle_save_geofeed(req, geofeed_path)
-    Get, _ -> serve_index(geofeed_path)
+    Get, [] | Get, ["index.html"] -> serve_index(geofeed_path)
     _, _ -> wisp.not_found()
   }
 }
