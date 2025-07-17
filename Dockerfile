@@ -6,12 +6,12 @@ ARG GLEAM_VERSION=v1.11.1
 FROM ghcr.io/gleam-lang/gleam:${GLEAM_VERSION}-erlang-alpine AS builder
 
 # Add project code
-COPY ./common /build/common
+COPY ./shared /build/shared
 COPY ./client /build/client
 COPY ./server /build/server
 
 # Install dependencies for all projects
-RUN cd /build/common && gleam deps download
+RUN cd /build/shared && gleam deps download
 RUN cd /build/client && gleam deps download
 RUN cd /build/server && gleam deps download
 
