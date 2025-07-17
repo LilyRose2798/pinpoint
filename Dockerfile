@@ -39,6 +39,10 @@ VOLUME /data
 
 # Set environment variables
 ENV GEOFEED_PATH=/data/geofeed.csv
+ENV PORT=8080
+
+# Expose the port the server will run on
+EXPOSE 8080
 
 # Run the server
 CMD ["/app/start.sh", "run"]
