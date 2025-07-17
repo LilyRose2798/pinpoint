@@ -1,5 +1,4 @@
 # Build args
-ARG PORT=8080
 ARG GLEAM_VERSION=v1.11.1
 
 # Build stage - compile the application
@@ -40,10 +39,6 @@ VOLUME /data
 
 # Set environment variables
 ENV GEOFEED_PATH=/data/geofeed.csv
-ENV PORT=${PORT}
-
-# Expose the port the server will run on
-EXPOSE ${PORT}
 
 # Run the server
 CMD ["/app/start.sh", "run"]
