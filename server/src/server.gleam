@@ -1,4 +1,4 @@
-import argv
+import envoy
 import gleam/dynamic/decode
 import gleam/erlang/process
 import gleam/http.{Get, Post}
@@ -19,7 +19,8 @@ pub fn main() {
   let secret_key_base = wisp.random_string(64)
   let assert Ok(priv_directory) = wisp.priv_directory("server")
   let static_directory = priv_directory <> "/static"
-  let assert [port_str, geofeed_path, ..] = argv.load().arguments
+  let assert Ok(port_str) = envoy.get("PORT")
+  let assert Ok(geofeed_path) = envoy.get("GEOFEED")
   let assert Ok(port) = int.parse(port_str)
   let assert Ok(_) =
     handle_request(static_directory, geofeed_path, _)
