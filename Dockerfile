@@ -29,11 +29,6 @@ FROM ghcr.io/gleam-lang/gleam:${GLEAM_VERSION}-erlang-alpine
 # Copy the compiled server code from the builder stage
 COPY --from=builder /build/server/build/erlang-shipment /app
 
-# Set up the entrypoint
-WORKDIR /app
-RUN echo '#!/bin/sh\nexec ./entrypoint.sh "$@"' > /app/start.sh \
-  && chmod +x /app/start.sh
-
 # Add volume for accessing geofeed from host
 VOLUME /data
 
@@ -45,4 +40,4 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Run the server
-CMD ["/app/start.sh", "run"]
+CMD ["/app/entrypoint.sh", "run"]
