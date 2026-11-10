@@ -1,5 +1,5 @@
 # Build args
-ARG GLEAM_VERSION=v1.11.1
+ARG GLEAM_VERSION=v1.19.2
 
 # Build stage - compile the application
 FROM ghcr.io/gleam-lang/gleam:${GLEAM_VERSION}-erlang-alpine AS builder
